@@ -56,25 +56,30 @@ def readData():
         print("reading data")
 
 def mainPumpOn():
-    print("spraying")
+    print("pump ON")
+    ser.write(b"11\n")
 
 def mainPumpOff():
-    print("not spraying")
+    print("pump OFF")
+    ser.write(b"10\n")
 
 def pPump():
     print("peristaltic")
+    ser.write(b"21\n")
 
 def lightOn():
     print("light on")
+    ser.write(b"31\n")
 
 def lightOff():
     print("light off")
+    ser.write(b"30\n")
 
 def background_schedule():
     global scheduler
     scheduler = BackgroundScheduler()
-    scheduler.add_job(mainPumpOn, 'interval', seconds=10, id="pumpon") #minutes=17)
-    scheduler.add_job(mainPumpOff, 'interval', seconds=10, id="pumpoff") #minutes=17)
+    scheduler.add_job(mainPumpOn, 'interval', seconds=5, id="pumpon") #minutes=17)
+    scheduler.add_job(mainPumpOff, 'interval', seconds=7, id="pumpoff") #minutes=17)
     scheduler.add_job(lightOn, 'cron', minute='*/1', id="lighton") #hour=9)
     scheduler.add_job(lightOff, 'cron', minute='*/2', id="lightoff") #hour=18)
     scheduler.add_job(post, 'cron', minute='*/10')
