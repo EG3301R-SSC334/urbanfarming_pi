@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+
+# Copyright (C) 2021 Rumesh Sudhaharan 
+#
+# This file is part of urbanfarming_pi.
+#
+# urbanfarming_pi is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# urbanfarming_pi is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with urbanfarming_pi.  If not, see <https://www.gnu.org/licenses/>.
+
+import dbus
+
+from ble.advertisement import Advertisement
+from ble.service import Application, Service, Characteristic, Descriptor
+
+class PlantstationAdvertisement(Advertisement):
+	def __init__(self, index):
+		Advertisement.__init__(self, index, "peripheral")
+		self.add_local_name("Plantstation")
+		self.add_service_uuid("FEED")
+
+class MainService(Service):
+	SERVICE_UUID = "FEED"
+
+	def __init__(self, index):
+		Service.__init__(self, index, self.SERVICE_UUID, True)
+		self.add_characteristic(IDChar(self))
+		self.add_characteristic(WIFIChar(self))
+
+class IDChar(Characteristic):
+	CHARACTERISTIC_UUID = "FED0"
+
+	def __init__(self, service):
+		with open('/home/pi/.plantstation_id') as f:
+			self.id = f.read()
+		
+		Characteristic.__init__(self, self.CHARACTERISTIC_UUID, ["read"], service)
+		self.add_descriptor(IDDesc(self))
+	
+	def get_id(self):
+		value = []
+		# print(self.id)
+		for c in self.id:
+			# print(f" {c} {c.encode()} {dbus.Byte(c.encode())}")
+			value.append(dbus.Byte(c.encode()))
+
+		
+		print(value)
+		# return self.id
+		return value
+	
+	def ReadValue(self, options):
+		return self.get_id()
+
+class IDDesc(Descriptor):
+	ID_DESC_UUID = "2901"
+	ID_DESC_VALUE = "System ID"
+
+	def __init__(self, characteristic):
+		Descriptor.__init__(self, self.ID_DESC_UUID, ["read"], characteristic)
+
+	def ReadValue(self, options):
+		value = []
+		desc = self.ID_DESC_VALUE
+		
+		for c in desc:
+			value.append(dbus.Byte(c.encode()))
+		
+		return value
+
+class WIFIChar(Characteristic):
+	CHARACTERISTIC_UUID = "FED1"
+	value = 0
+
+	def __init__(self, service):
+		Characteristic.__init__(self, self.CHARACTERISTIC_UUID, ["read", "write"], service)
+		self.add_descriptor(WIFIDesc(self))
+	
+	def ReadValue(self, options):
+		value = []
+		send_val = f"CUR_VALUE: {self.value}"
+
+		for c in send_val:
+			value.append(dbus.Byte(c.encode()))
+		
+		return value
+	
+	def WriteValue(self, value, options):
+		# print(int(value))
+		# for v in value:
+			# print(str(v))
+		self.value = int(str(value[-1]))
+
+class WIFIDesc(Descriptor):
+	UUID = "2901"
+	VALUE = "WIFI"
+
+	def __init__(self, characteristic):
+		Descriptor.__init__(self, self.UUID, ["read"], characteristic)
+
+	def ReadValue(self, options):
+		value = []
+
+		for c in self.VALUE:
+			value.append(dbus.Byte(c.encode()))
+		
+		return value
+
+def main():
+	app = Application()
+	app.add_service(MainService(0))
+	app.register()
+
+	adv = PlantstationAdvertisement(0)
+	adv.register()
+
+	try:
+		app.run()
+	except KeyboardInterrupt:
+		app.quit()
+	
+
+if __name__ == '__main__':
+	main()
