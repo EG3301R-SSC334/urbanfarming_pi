@@ -11,8 +11,8 @@ from struct import *
 url = 'https://urban-farming-demo.herokuapp.com/systems/'
 headers = {'content-type': 'application/json'}
 
-f = open('id.json')
-id = json.load(f)
+with open('id.json', 'r') as f:
+    id = json.load(f)
 data = {}
 resched_flag = 1
 pump_flag = 0
@@ -59,11 +59,8 @@ def readData():
         print("received sensor data")
 
 ### mainpump(1), onduration(6), offduration(6)
-### peristaltic pump(1), pumpselect(1)
+### peristaltic pump(1), pumpselect(1), duration(6)
 ### light(1), on/off(1)
-def pPump():
-    print("peristaltic")
-    ser.write(b"21\n")
 
 def lightOn():
     print("light on")
@@ -93,6 +90,12 @@ def changePumpInterval(on, off):
     onstr = ("0" * (6 - len(str(on)))) + str(on)
     offstr = ("0" * (6 - len(str(off)))) + str(off)
     data = "1" + onstr + offstr + "\n"
+    ser.write(bytes(data, 'UTF-8'))
+
+def controlEC(pump, duration):
+    print("altering ec")
+    durationstr = ("0" * (6 - len(str(duration)))) + str(duration)
+    data = "2" + str(pump) + durationstr + "\n"
     ser.write(bytes(data, 'UTF-8'))
 
 def controlSystem():
