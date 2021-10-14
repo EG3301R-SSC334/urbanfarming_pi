@@ -4,6 +4,7 @@ import time
 import requests
 import json
 import serial
+from PID import PID
 from apscheduler.schedulers.background import BackgroundScheduler
 from struct import *
 
@@ -19,15 +20,14 @@ pump_flag = 0
 
 def firstPost(systemName, ownerID, plantType):
     global id
-    unixtime = time.time()
     systemData = json.dumps({
         'systemName': systemName,
         'ownerID': ownerID,
         'plantType': plantType,
-        'humidity': {'value': data['humidity'], 'time': unixtime},
-        'temperature': {'value': data['temp'], 'time': unixtime},
-        'pH': {'value': data['pH'], 'time': unixtime},
-        'EC': {'value': data['EC'], 'time': unixtime}
+        'humidity': {'value': data['humidity'], 'time': data['time']},
+        'temperature': {'value': data['temp'], 'time': data['time']},
+        'pH': {'value': data['pH'], 'time': data['time']},
+        'EC': {'value': data['EC'], 'time': data['time']}
     })
 
     resp = requests.post(url, data=systemData, headers=headers)
@@ -37,26 +37,25 @@ def firstPost(systemName, ownerID, plantType):
         json.dump(id, f)
 
 def post():
-    unixtime = time.time()
     updateData = json.dumps({
-        'humidity': {'value': data['humidity'], 'time': unixtime},
-        'temperature': {'value': data['temp'], 'time': unixtime},
-        'pH': {'value': data['pH'], 'time': unixtime},
-        'EC': {'value': data['EC'], 'time': unixtime}
+        'humidity': {'value': data['humidity'], 'time': data['time']},
+        'temperature': {'value': data['temp'], 'time': data['time']},
+        'pH': {'value': data['pH'], 'time': data['time']},
+        'EC': {'value': data['EC'], 'time': data['time']}
     })
 
     requests.put(url + id, data=updateData, headers=headers)
 
 def readData():
     if ser.in_waiting > 0:
-        # line = ser.readline().rstrip()
-        # print(line)
         line = ser.readline().rstrip().decode()
         data['EC'] = unpack('<f', bytes.fromhex(line[0:8]))[0]
         data['pH'] = unpack('<f', bytes.fromhex(line[8:16]))[0]
         data['temp'] = unpack('<f', bytes.fromhex(line[16:24]))[0]
         data['humidity'] = unpack('<f', bytes.fromhex(line[24:32]))[0]
+        data['time'] = time.time()
         print("received sensor data")
+        print(pid.update(data['EC'], data['time']))
 
 ### mainpump(1), onduration(6), offduration(6)
 ### peristaltic pump(1), pumpselect(1), duration(6)
@@ -98,26 +97,12 @@ def controlEC(pump, duration):
     data = "2" + str(pump) + durationstr + "\n"
     ser.write(bytes(data, 'UTF-8'))
 
-def controlSystem():
-    global data
-    # test humidity
-    # if data['humidity'] < 13262:
-    #   changePumpInterval(123123,1241241)
-    # else if data['humidity'] > 12353:
-    #   changePumpInterval(123123,1241241)
-    #
-    # test ec
-    # if data['EC'] < 123123:
-    #   asdasd
-    # else if data['EC'] > 23412:
-    #   asdad
-
 if __name__ == '__main__':
     # firstPost("testsystem", 1, "testplant", {"humidity": "80", "temp": "25", "pH":"6.5", "EC":"1.6"})
     ser = serial.Serial('/dev/ttyACM0', 9600)
     ser.flush()
     background_schedule()
+    pid = PID(0, 0, 0, 1.6)
 
     while True:
         readData()
-        controlSystem()
