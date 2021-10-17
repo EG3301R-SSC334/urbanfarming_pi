@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from os import X_OK
 import time
 import requests
 import json
@@ -30,7 +31,7 @@ def firstPost(systemName, ownerID, plantType):
         'EC': {'value': data['EC'], 'time': data['time']}
     })
 
-    resp = requests.post(url, data=systemData, headers=headers)
+    resp = requests.post(url + "sensordata/", data=systemData, headers=headers)
 
     id = resp.json()['_id']
     with open('id.json', 'w') as f:
@@ -44,7 +45,7 @@ def post():
         'EC': {'value': data['EC'], 'time': data['time']}
     })
 
-    requests.put(url + id, data=updateData, headers=headers)
+    requests.put(url + "sensordata/" + id, data=updateData, headers=headers)
 
 def readData():
     if ser.in_waiting > 0:
@@ -72,15 +73,18 @@ def lightOff():
 def background_schedule():
     global scheduler
     scheduler = BackgroundScheduler()
-    scheduler.add_job(lightOn, 'cron', second=0, id="lighton") #hour=9)
-    scheduler.add_job(lightOff, 'cron', second=30, id="lightoff") #hour=18)
+    scheduler.add_job(lightOn, 'cron', hour=9, id="lighton")
+    scheduler.add_job(lightOff, 'cron', hour=18, id="lightoff")
     scheduler.add_job(post, 'cron', minute='*/10')
+    scheduler.add_job(changeLightHours, 'cron', minute=30)
     scheduler.start()
 
-# need to get data from server?
-def changeLightHours(on, off):
+def changeLightHours():
     global scheduler
-    print("changing light hours")
+    resp = requests.get(url + id)
+    on = resp.json()["lighting"][0]
+    off = resp.json()["lighting"][1]
+    print("changing light hours to " + str(on) + " and " + str(off))
     scheduler.reschedule_job("lighton", trigger='cron', hour=on)
     scheduler.reschedule_job("lightoff", trigger='cron', hour=off)
 
