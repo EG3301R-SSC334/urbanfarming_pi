@@ -56,7 +56,15 @@ def readData():
         data['humidity'] = unpack('<f', bytes.fromhex(line[24:32]))[0]
         data['time'] = time.time()
         print("received sensor data")
-        print(pid.update(data['EC'], data['time']))
+        print("EC: " + data['EC'])
+        pid_out = pid.update(data['EC'], data['time'])
+        print(pid_out)
+        if pid_out>0:
+            val = int(pid_out*10)
+            controlEC(1, val)
+        else:
+            val = int(pid*10)
+            controlEC(2, val)
 
 ### mainpump(1), onduration(6), offduration(6)
 ### peristaltic pump(1), pumpselect(1), duration(6)
@@ -106,7 +114,7 @@ if __name__ == '__main__':
     ser = serial.Serial('/dev/ttyACM0', 9600)
     ser.flush()
     background_schedule()
-    pid = PID(0, 0, 0, 1.6)
+    pid = PID(1, 0, 2, 1.8)
 
     while True:
         readData()
