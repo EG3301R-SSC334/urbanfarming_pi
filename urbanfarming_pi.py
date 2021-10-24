@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 
+from os import X_OK
 import time
 import requests
 import json
 import serial
+import logging
 from PID import PID
 from apscheduler.schedulers.background import BackgroundScheduler
 from struct import *
 
-
+logging.basicConfig(filename='plantstation.log', level=logging.DEBUG)
 url = 'https://urban-farming-demo.herokuapp.com/systems/'
 headers = {'content-type': 'application/json'}
 
@@ -30,13 +32,14 @@ def firstPost(systemName, ownerID, plantType):
         'EC': {'value': data['EC'], 'time': data['time']}
     })
 
-    resp = requests.post(url, data=systemData, headers=headers)
+    resp = requests.post(url + "sensordata/", data=systemData, headers=headers)
 
     id = resp.json()['_id']
     with open('id.json', 'w') as f:
         json.dump(id, f)
 
 def post():
+    logging.info("Posting data to server")
     updateData = json.dumps({
         'humidity': {'value': data['humidity'], 'time': data['time']},
         'temperature': {'value': data['temp'], 'time': data['time']},
@@ -44,7 +47,7 @@ def post():
         'EC': {'value': data['EC'], 'time': data['time']}
     })
 
-    requests.put(url + id, data=updateData, headers=headers)
+    requests.put(url + "sensordata/" + id, data=updateData, headers=headers)
 
 def readData():
     if ser.in_waiting > 0:
@@ -54,45 +57,60 @@ def readData():
         data['temp'] = unpack('<f', bytes.fromhex(line[16:24]))[0]
         data['humidity'] = unpack('<f', bytes.fromhex(line[24:32]))[0]
         data['time'] = time.time()
-        print("received sensor data")
-        print(pid.update(data['EC'], data['time']))
+        logging.info("Sensor data received")
+        logging.info("EC: " + str(data['EC']))
+        pid_out = pid.update(data['EC'], data['time'])
+        logging.info("PID Output: " + str(pid_out))
+        if pid_out < -5:
+            val = int(pid_out*200)
+            controlEC(1, val)
+        elif pid_out > 5:
+            val = int(pid_out*200)
+            controlEC(0, val)
+        else: 
+            logging.info("PID within range, no solution added")
 
 ### mainpump(1), onduration(6), offduration(6)
 ### peristaltic pump(1), pumpselect(1), duration(6)
 ### light(1), on/off(1)
 
 def lightOn():
-    print("light on")
+    logging.info("Light on")
     ser.write(b"31\n")
 
 def lightOff():
-    print("light off")
+    logging.info("Light off")
     ser.write(b"30\n")
 
 def background_schedule():
     global scheduler
     scheduler = BackgroundScheduler()
-    scheduler.add_job(lightOn, 'cron', second=0, id="lighton") #hour=9)
-    scheduler.add_job(lightOff, 'cron', second=30, id="lightoff") #hour=18)
+    scheduler.add_job(lightOn, 'cron', hour=9, id="lighton")
+    scheduler.add_job(lightOff, 'cron', hour=18, id="lightoff")
     scheduler.add_job(post, 'cron', minute='*/10')
+    scheduler.add_job(changeLightHours, 'cron', minute=30)
     scheduler.start()
 
-# need to get data from server?
-def changeLightHours(on, off):
+def changeLightHours():
     global scheduler
-    print("changing light hours")
+    resp = requests.get(url + id)
+    on = resp.json()["lighting"][0]
+    off = resp.json()["lighting"][1]
+    logging.info("Changing light hours to " + str(on) + " and " + str(off))
     scheduler.reschedule_job("lighton", trigger='cron', hour=on)
     scheduler.reschedule_job("lightoff", trigger='cron', hour=off)
 
 def changePumpInterval(on, off):
-    print("changing pump interval")
+    logging.info("Changing pump interval")
+    logging.info("On: " + str(on))
+    logging.info("Off: " + str(off))
     onstr = ("0" * (6 - len(str(on)))) + str(on)
     offstr = ("0" * (6 - len(str(off)))) + str(off)
     data = "1" + onstr + offstr + "\n"
     ser.write(bytes(data, 'UTF-8'))
 
 def controlEC(pump, duration):
-    print("altering ec")
+    logging.info("Pump Duration: " + str(duration))
     durationstr = ("0" * (6 - len(str(duration)))) + str(duration)
     data = "2" + str(pump) + durationstr + "\n"
     ser.write(bytes(data, 'UTF-8'))
@@ -102,7 +120,7 @@ if __name__ == '__main__':
     ser = serial.Serial('/dev/ttyACM0', 9600)
     ser.flush()
     background_schedule()
-    pid = PID(0, 0, 0, 1.6)
+    pid = PID(1, 0, 2, 1.8)
 
     while True:
         readData()
