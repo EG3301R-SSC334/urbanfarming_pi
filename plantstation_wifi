@@ -1,0 +1,20 @@
+#!/bin/bash
+
+echo "Starting wifi connect"
+wpa_supplicant -D wext -i wlan0 -c <(wpa_passphrase $1 $2) | while read x;
+do 
+	if [[ $x == *"CTRL-EVENT-CONNECTED"* ]]
+	then
+		echo "CONNECTED SUCCESSFULY";
+		echo "ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev" > /etc/wpa_supplicant/wpa_supplicant.conf
+		echo "update_config=1" >> /etc/wpa_supplicant/wpa_supplicant.conf
+		echo "country=SG" >> /etc/wpa_supplicant/wpa_supplicant.conf
+
+		wpa_passphrase $1 $2 >> /etc/wpa_supplicant/wpa_supplicant.conf
+		exit 0;
+	elif [[ $x == *reason=WRONG_KEY* ]]
+	then 
+		echo "invalid key";
+		exit 1; 
+	fi; 
+done

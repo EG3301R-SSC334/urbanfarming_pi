@@ -1,0 +1,13 @@
+[Unit]
+Description=Start PlantStation BLE Server
+After=bluetooth.target
+Requires=bluetooth.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/plantstation_ble &
+
+[Install]
+WantedBy=multi-user.target
+WantedBy=bluetooth.target

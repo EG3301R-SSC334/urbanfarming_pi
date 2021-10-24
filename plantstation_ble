@@ -18,6 +18,8 @@
 # along with urbanfarming_pi.  If not, see <https://www.gnu.org/licenses/>.
 
 import dbus
+import subprocess
+import sys
 
 from ble.advertisement import Advertisement
 from ble.service import Application, Service, Characteristic, Descriptor
@@ -93,12 +95,34 @@ class WIFIChar(Characteristic):
 			value.append(dbus.Byte(c.encode()))
 		
 		return value
-	
+
 	def WriteValue(self, value, options):
-		# print(int(value))
-		# for v in value:
-			# print(str(v))
-		self.value = int(str(value[-1]))
+		print("written value")
+		ssid = ''
+		pw = ''
+		ssid_over = False
+		for c in value:
+			char = str(c)
+			if char == '\n':
+				ssid_over = True
+				continue
+			
+			if ssid_over:
+				pw += char
+			else:
+				ssid += char
+		
+		print(f"SSID: {ssid}")
+		print(f"PW: {pw}")
+
+		proc = subprocess.run(["/usr/local/bin/plantstation_wifi", ssid, pw])
+
+		if proc.returncode == 0:
+			print("Successful connection")
+		else:
+			print("Connection failed")
+		
+		return
 
 class WIFIDesc(Descriptor):
 	UUID = "2901"
