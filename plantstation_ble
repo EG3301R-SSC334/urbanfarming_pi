@@ -84,16 +84,16 @@ class WIFIChar(Characteristic):
 	value = 0
 
 	def __init__(self, service):
-		Characteristic.__init__(self, self.CHARACTERISTIC_UUID, ["read", "write"], service)
+		Characteristic.__init__(self, self.CHARACTERISTIC_UUID, ["read", "write", "notify"], service)
 		self.add_descriptor(WIFIDesc(self))
+		self.connected = False
 	
 	def ReadValue(self, options):
-		value = []
-		send_val = f"CUR_VALUE: {self.value}"
+		if self.connected:
+			value.append(dbus.Byte("1".encode()))
+		else:
+			value.append(dbus.Byte("0".encode()))
 
-		for c in send_val:
-			value.append(dbus.Byte(c.encode()))
-		
 		return value
 
 	def WriteValue(self, value, options):
@@ -112,17 +112,18 @@ class WIFIChar(Characteristic):
 			else:
 				ssid += char
 		
-		print(f"SSID: {ssid}")
-		print(f"PW: {pw}")
+		# print(f"SSID: {ssid}")
+		# print(f"PW: {pw}")
 
 		proc = subprocess.run(["/usr/local/bin/plantstation_wifi", ssid, pw])
 
 		if proc.returncode == 0:
 			print("Successful connection")
+			self.connected = True
 		else:
 			print("Connection failed")
 		
-		return
+		# return proc.returncode
 
 class WIFIDesc(Descriptor):
 	UUID = "2901"
@@ -142,7 +143,10 @@ class WIFIDesc(Descriptor):
 def main():
 	app = Application()
 	app.add_service(MainService(0))
-	app.register()
+	try:
+		app.register()
+	except:
+		print("THIS CATCHES IT")
 
 	adv = PlantstationAdvertisement(0)
 	adv.register()

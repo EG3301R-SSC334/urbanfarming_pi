@@ -6,6 +6,8 @@ Requires=bluetooth.target
 [Service]
 Type=simple
 User=root
+Restart=on-failure
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/local/bin/plantstation_ble &
 
 [Install]

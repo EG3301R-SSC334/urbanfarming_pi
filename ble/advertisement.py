@@ -120,15 +120,18 @@ class Advertisement(dbus.service.Object):
     def register_ad_callback(self):
         print("GATT advertisement registered")
 
-    def register_ad_error_callback(self):
+    def register_ad_error_callback(self, t):
         print("Failed to register GATT advertisement")
 
     def register(self):
         bus = BleTools.get_bus()
         adapter = BleTools.find_adapter(bus)
 
-        ad_manager = dbus.Interface(bus.get_object(BLUEZ_SERVICE_NAME, adapter),
+        try:
+            ad_manager = dbus.Interface(bus.get_object(BLUEZ_SERVICE_NAME, adapter),
                                 LE_ADVERTISING_MANAGER_IFACE)
-        ad_manager.RegisterAdvertisement(self.get_path(), {},
+            ad_manager.RegisterAdvertisement(self.get_path(), {},
                                      reply_handler=self.register_ad_callback,
                                      error_handler=self.register_ad_error_callback)
+        except:
+            print("failed to start GATT")
