@@ -17,6 +17,11 @@ headers = {'content-type': 'application/json'}
 with open('id.json', 'r') as f:
     id = json.load(f)
 data = {}
+data['EC'] = 1.8
+data['pH'] = 6.5
+data['temp'] = 25.0
+data['humidity'] = 98.2
+data['time'] = time.time()
 resched_flag = 1
 pump_flag = 0
 
@@ -53,9 +58,9 @@ def readData():
     if ser.in_waiting > 0:
         line = ser.readline().rstrip().decode()
         data['EC'] = unpack('<f', bytes.fromhex(line[0:8]))[0]
-        data['pH'] = unpack('<f', bytes.fromhex(line[8:16]))[0]
-        data['temp'] = unpack('<f', bytes.fromhex(line[16:24]))[0]
-        data['humidity'] = unpack('<f', bytes.fromhex(line[24:32]))[0]
+        # data['pH'] = unpack('<f', bytes.fromhex(line[8:16]))[0]
+        # data['temp'] = unpack('<f', bytes.fromhex(line[16:24]))[0]
+        # data['humidity'] = unpack('<f', bytes.fromhex(line[24:32]))[0]
         data['time'] = time.time()
         logging.info("Sensor data received")
         logging.info("EC: " + str(data['EC']))
@@ -76,11 +81,11 @@ def readData():
 
 def lightOn():
     logging.info("Light on")
-    ser.write(b"31\n")
+    ser.write(b"30\n")
 
 def lightOff():
     logging.info("Light off")
-    ser.write(b"30\n")
+    ser.write(b"31\n")
 
 def background_schedule():
     global scheduler
